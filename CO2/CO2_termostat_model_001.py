@@ -64,6 +64,7 @@ while t <= TimeMod:
 			Ten_period_on = PWM_N
 		else:
 			Ten = False
+            
 
 	
 	
