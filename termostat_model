@@ -1,0 +1,118 @@
+from decimal import Decimal
+
+import matplotlib.pyplot as plt
+import numpy as np
+from numpy import *
+
+def add_temp(arr_Temp_Integral,TempDiff,Number_of_decimals):
+	arr_Temp_Integral.append(round(TempDiff,Number_of_decimals))
+	del arr_Temp_Integral[0]
+	return(arr_Temp_Integral_arr)
+
+def PID_regulator(TempDiff, arr_Temp_Integral):
+	'''Вычисляем реакцию ПИД регулятора на сигнал ошибки'''
+	K_proportionally = 10			#коэффициэкнт пропорциональной составляющей.
+	'''коэффициэкнт пропорциональной составляющей.'''
+	K_integral = 1e-2					#коэффициэнт интегральной составляющей.
+	'''коэффициэнт интегральной составляющей.'''
+	K_differential = 0.1				#коэффициэнт дифференциальной составляющей.
+	'''коэффициэнт дифференциальной составляющей.'''
+	Differential = 1					#смещение по массиву температур: difTemp=Temp(i)-Temp(i-3)
+	'''смещение по массиву температур: difTemp=Temp(i)-Temp(i-3)'''
+	PID_proportionally =- K_proportionally * TempDiff
+	PID_integral = K_integral * sum(arr_Temp_Integral)
+	PID_differential = K_differential*(TempDiff - arr_Temp_Integral[-1 * Differential])
+	PID = PID_proportionally + PID_integral + PID_differential
+	return(PID)
+
+def error_write(error_arr, arg1, arg3, arg2):
+		error_arr.append(int(arg2))
+		error_arr.append(arg1)
+		error_arr.append(arg3)
+		error_arr.append('|')
+
+TempCabinet = 25				#начальная температура.
+'''начальная температура.'''
+TempUstavka = 30				#целевая температура, которую должен поддерживать термостат.
+'''целевая температура, которую должен поддерживать термостат.'''
+Temp = TempCabinet				#текущая температура термостата.
+'''текущая температура термостата.'''
+TempDiff = 0
+'''ошибка управления по температуре'''
+TimeMod = 100					#длительность моделирования.
+'''длительность моделирования.'''
+TimeStep = 0.1					#шаг изменеиня времени, значение должно быть кратно целым числам.
+'''шаг изменеиня времени, значение должно быть кратно целым числам.'''
+t = 0							#переменная времени.
+'''переменная времени.'''
+PWM_period = 20					#период шим генератора в секундах.
+'''период шим генератора в секундах.'''
+PWM = 0							#текущее значение ШИМ генератора, меняется от 0 до PWM_period секунд.
+'''текущее значение ШИМ генератора, меняется от 0 до PWM_period секунд.'''
+PWM_min = 1						#минимальная длинна импульса ШИМ в секундах.
+'''минимальная длинна импульса ШИМ в секундах.'''
+Ten = False						#флаг включения нагревателя.
+'''флаг включения нагревателя.'''
+Ten_period_on = 0				#номер последнего периода, когда включен нагреватель. Нужен для исключения повторного ключения нагревателя в течении одного периода.
+'''номер последнего периода, когда включен нагреватель.'''
+Number_of_decimals = 2
+'''количество знаков после запятой'''
+Integral = 60					#время интегрирования ПИД регулятора в секундах.
+'''время интегрирования ПИД регулятора в секундах'''
+arr_Temp_Integral = [(TempUstavka - TempCabinet)] * Integral	#массив предыдущих температур за время интегрирования.
+'''массив предыдущих температур за время интегрирования'''
+arr_Temp_Integral_arr = []
+t_arr = []
+error = []
+while t <= TimeMod:
+	TempDiff = TempUstavka - Temp
+	
+	#Реальный датчик температуры выдаёт значения один раз в секунду, поэтому записываем в массив
+	#данные температуры,полученные в целые значения текущего времени.
+	if int(t) == t:
+		t_arr.append(t)
+		arr_Temp_Integral_arr.append(round(TempDiff,Number_of_decimals))
+		arr_Temp_Integral_arr = add_temp(arr_Temp_Integral,TempDiff,Number_of_decimals)#добовляет ошибку по температуре в конец списака, удаляет самую старую ошибку
+		PID = PID_regulator(TempDiff, arr_Temp_Integral)#рассчет пид регулятора
+		#Вычисляем значение ШИМ генератора
+		PWM_N = int(t / PWM_period)#сколько периодов ШИМ генератора укладывается в прошедшее время.
+		PWM_generayor = t - PWM_N * PWM_period
+		#Вычисляем длинну импульса включения нагревателя.
+		PWM_Dif = PID - PWM_generayor
+		if (PWM_Dif > 0) and (PWM_N> Ten_period_on):
+			Ten = True
+		else:
+			Ten = False
+			Ten_period_on = PWM_N
+		error_write(error, PWM_N, Ten_period_on, PWM_Dif)
+
+	#Вычисляем следующее значение времени
+	t = round((t + TimeStep),Number_of_decimals)
+	
+	
+	
+	
+	# print(arr_Temp_Integral)
+	
+	# print(t)
+	Temp = Temp + TimeStep
+print(error)
+fig,(ax1,ax2,ax3) = plt.subplots(3)
+ax1.plot(t_arr)
+ax2.plot(arr_Temp_Integral_arr)
+ax3.plot(t_arr,arr_Temp_Integral_arr)
+ax1.grid()
+ax2.grid()
+ax3.grid()
+# plt.show()
+
+
+# import matplotlib.pyplot as plt #рассчет при помощи линерезации массива
+# import numpy as np
+# from numpy import *
+
+# t = linspace(0,5,100)
+# t1 = linspace(0,5,100)
+# plt.plot(t,t1)
+# plt.show()
+
